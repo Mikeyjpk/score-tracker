@@ -5,22 +5,37 @@ type Player = {
   id: number;
   name: string;
   totalScore: number;
-  roundScore: string; // keep as string for easier input handling
+  roundScore: string;
+};
+
+type GameMode = "highest-wins" | "lowest-wins" | "unique-rounds";
+
+const UNIQUE_ROUND_CODES = [null, 33, 34, 44, 333, 334, 344, 444];
+
+const getRoundDisplayNumber = (round: number, mode: GameMode) => {
+  if (mode !== "unique-rounds") return round;
+
+  return UNIQUE_ROUND_CODES[round] ?? "?";
+};
+
+const isGameEnded = (round: number, mode: GameMode) => {
+  return mode === "unique-rounds" && round > 7;
 };
 
 const App: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [newPlayerName, setNewPlayerName] = useState("");
-  const [gameMode, setGameMode] = useState<"highest-wins" | "lowest-wins">(
-    "highest-wins"
-  );
+  const [gameMode, setGameMode] = useState<GameMode>("highest-wins");
+  const [round, setRound] = useState(1);
   const nextId = useRef(1);
 
   const handleAddPlayer = (event: React.FormEvent) => {
     event.preventDefault();
 
     const trimmedName = newPlayerName.trim();
-    if (!trimmedName) return;
+    if (!trimmedName) {
+      return;
+    }
 
     const newPlayer: Player = {
       id: nextId.current++,
@@ -58,6 +73,8 @@ const App: React.FC = () => {
         };
       })
     );
+
+    setRound((prev) => prev + 1);
   };
 
   const handleResetAll = () => {
@@ -68,10 +85,24 @@ const App: React.FC = () => {
         roundScore: "",
       }))
     );
+
+    setRound(1);
   };
 
   const handleRemovePlayer = (id: number) => {
     setPlayers((prev) => prev.filter((player) => player.id !== id));
+  };
+
+  const renderRoundText = () => {
+    if (isGameEnded(round, gameMode)) {
+      return "Game Over";
+    }
+
+    if (gameMode === "unique-rounds") {
+      return `Round: ${getRoundDisplayNumber(round, gameMode)}`;
+    }
+
+    return `Round: ${round}`;
   };
 
   return (
@@ -88,6 +119,7 @@ const App: React.FC = () => {
         >
           <option value="highest-wins">Highest Score Wins</option>
           <option value="lowest-wins">Lowest Score Wins</option>
+          <option value="unique-rounds">Joe</option>
         </select>
       </div>
 
@@ -156,15 +188,24 @@ const App: React.FC = () => {
               className="reset-button"
               onClick={handleResetAll}
             >
-              Reset scores
+              Reset game
             </button>
+
             <button
               type="button"
               className="apply-score-button"
               onClick={handleApplyRoundScores}
+              disabled={isGameEnded(round, gameMode)}
             >
               Apply round scores
             </button>
+          </div>
+
+          {/* Current Round Card */}
+          <div className="round-card">
+            <h2>Current Round</h2>
+
+            <p>{renderRoundText()}</p>
           </div>
 
           {/* Score Display */}
