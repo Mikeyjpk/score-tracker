@@ -113,9 +113,12 @@ const App: React.FC = () => {
       <div className="game-mode-toggle">
         <select
           value={gameMode}
-          onChange={(e) =>
-            setGameMode(e.target.value as "highest-wins" | "lowest-wins")
-          }
+          onChange={(e) => {
+            setGameMode(
+              e.target.value as "highest-wins" | "lowest-wins" | "unique-rounds"
+            );
+            handleResetAll();
+          }}
         >
           <option value="highest-wins">Highest Score Wins</option>
           <option value="lowest-wins">Lowest Score Wins</option>
