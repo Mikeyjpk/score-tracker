@@ -11,6 +11,9 @@ type Player = {
 const App: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [newPlayerName, setNewPlayerName] = useState("");
+  const [gameMode, setGameMode] = useState<"highest-wins" | "lowest-wins">(
+    "highest-wins"
+  );
   const nextId = useRef(1);
 
   const handleAddPlayer = (event: React.FormEvent) => {
@@ -74,6 +77,19 @@ const App: React.FC = () => {
   return (
     <main>
       <h1>Scoreboard</h1>
+
+      {/* Game Mode Toggle */}
+      <div className="game-mode-toggle">
+        <select
+          value={gameMode}
+          onChange={(e) =>
+            setGameMode(e.target.value as "highest-wins" | "lowest-wins")
+          }
+        >
+          <option value="highest-wins">Highest Score Wins</option>
+          <option value="lowest-wins">Lowest Score Wins</option>
+        </select>
+      </div>
 
       {/* Add Player */}
       <form onSubmit={handleAddPlayer}>
@@ -155,13 +171,19 @@ const App: React.FC = () => {
           <div className="score-cards">
             {players
               .slice()
-              .sort((a, b) => b.totalScore - a.totalScore)
+              .sort((a, b) =>
+                gameMode === "highest-wins"
+                  ? b.totalScore - a.totalScore
+                  : a.totalScore - b.totalScore
+              )
               .map((player, index) => (
                 <div className="score-card" key={player.id}>
                   <div className="player-info">
                     {index === 0 &&
                       players.length > 0 &&
-                      player.totalScore > 0 && (
+                      (gameMode === "highest-wins"
+                        ? player.totalScore > 0
+                        : players.some((p) => p.totalScore !== 0)) && (
                         <FaCrown className="crown-icon" />
                       )}
                     <span>{player.name}</span>
