@@ -1,108 +1,36 @@
-import React, { useRef, useState } from "react";
+import React from "react";
 import { FaCrown } from "react-icons/fa";
-
-type Player = {
-  id: number;
-  name: string;
-  totalScore: number;
-  roundScore: string;
-};
-
-type GameMode = "highest-wins" | "lowest-wins" | "unique-rounds";
-
-const UNIQUE_ROUND_CODES = [null, 33, 34, 44, 333, 334, 344, 444];
-
-const getRoundDisplayNumber = (round: number, mode: GameMode) => {
-  if (mode !== "unique-rounds") return round;
-
-  return UNIQUE_ROUND_CODES[round] ?? "?";
-};
-
-const isGameEnded = (round: number, mode: GameMode) => {
-  return mode === "unique-rounds" && round > 7;
-};
+import { usePlayerManager, useGameState } from "./hooks";
 
 const App: React.FC = () => {
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [newPlayerName, setNewPlayerName] = useState("");
-  const [gameMode, setGameMode] = useState<GameMode>("highest-wins");
-  const [round, setRound] = useState(1);
-  const nextId = useRef(1);
+  const {
+    players,
+    newPlayerName,
+    setNewPlayerName,
+    addPlayer,
+    updateRoundScore,
+    applyRoundScores,
+    resetPlayerScores,
+    removePlayer,
+  } = usePlayerManager();
 
-  const handleAddPlayer = (event: React.FormEvent) => {
-    event.preventDefault();
-
-    const trimmedName = newPlayerName.trim();
-    if (!trimmedName) {
-      return;
-    }
-
-    const newPlayer: Player = {
-      id: nextId.current++,
-      name: trimmedName,
-      totalScore: 0,
-      roundScore: "",
-    };
-
-    setPlayers((prev) => [...prev, newPlayer]);
-    setNewPlayerName("");
-  };
-
-  const handleRoundScoreChange = (id: number, value: string) => {
-    setPlayers((prev) =>
-      prev.map((player) =>
-        player.id === id ? { ...player, roundScore: value } : player
-      )
-    );
-  };
+  const {
+    gameMode,
+    changeGameMode,
+    nextRound,
+    resetGame,
+    isGameEnded,
+    roundDisplayText,
+  } = useGameState();
 
   const handleApplyRoundScores = () => {
-    setPlayers((prev) =>
-      prev.map((player) => {
-        const value = player.roundScore.trim();
-        const numericRoundScore = value === "" ? 0 : Number(value);
-
-        if (Number.isNaN(numericRoundScore)) {
-          return { ...player, roundScore: "" };
-        }
-
-        return {
-          ...player,
-          totalScore: player.totalScore + numericRoundScore,
-          roundScore: "",
-        };
-      })
-    );
-
-    setRound((prev) => prev + 1);
+    applyRoundScores();
+    nextRound();
   };
 
   const handleResetAll = () => {
-    setPlayers((prev) =>
-      prev.map((player) => ({
-        ...player,
-        totalScore: 0,
-        roundScore: "",
-      }))
-    );
-
-    setRound(1);
-  };
-
-  const handleRemovePlayer = (id: number) => {
-    setPlayers((prev) => prev.filter((player) => player.id !== id));
-  };
-
-  const renderRoundText = () => {
-    if (isGameEnded(round, gameMode)) {
-      return "Game Over";
-    }
-
-    if (gameMode === "unique-rounds") {
-      return `Round: ${getRoundDisplayNumber(round, gameMode)}`;
-    }
-
-    return `Round: ${round}`;
+    resetPlayerScores();
+    resetGame();
   };
 
   return (
@@ -114,10 +42,12 @@ const App: React.FC = () => {
         <select
           value={gameMode}
           onChange={(e) => {
-            setGameMode(
-              e.target.value as "highest-wins" | "lowest-wins" | "unique-rounds"
-            );
-            handleResetAll();
+            const newMode = e.target.value as
+              | "highest-wins"
+              | "lowest-wins"
+              | "unique-rounds";
+            changeGameMode(newMode);
+            resetPlayerScores();
           }}
         >
           <option value="highest-wins">Highest Score Wins</option>
@@ -127,7 +57,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Add Player */}
-      <form onSubmit={handleAddPlayer}>
+      <form onSubmit={addPlayer}>
         <input
           type="text"
           placeholder="Player name"
@@ -165,7 +95,7 @@ const App: React.FC = () => {
                       inputMode="numeric"
                       value={player.roundScore}
                       onChange={(e) =>
-                        handleRoundScoreChange(player.id, e.target.value)
+                        updateRoundScore(player.id, e.target.value)
                       }
                     />
                   </td>
@@ -174,7 +104,7 @@ const App: React.FC = () => {
                     <button
                       type="button"
                       className="remove-player-button"
-                      onClick={() => handleRemovePlayer(player.id)}
+                      onClick={() => removePlayer(player.id)}
                     >
                       Remove
                     </button>
@@ -198,7 +128,7 @@ const App: React.FC = () => {
               type="button"
               className="apply-score-button"
               onClick={handleApplyRoundScores}
-              disabled={isGameEnded(round, gameMode)}
+              disabled={isGameEnded}
             >
               Apply round scores
             </button>
@@ -208,7 +138,7 @@ const App: React.FC = () => {
           <div className="round-card">
             <h2>Current Round</h2>
 
-            <p>{renderRoundText()}</p>
+            <p>{roundDisplayText}</p>
           </div>
 
           {/* Score Display */}
