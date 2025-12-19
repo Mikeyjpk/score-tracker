@@ -1,175 +1,307 @@
-import React from "react";
-import { FaCrown } from "react-icons/fa";
+import React, { useState } from "react";
 import { usePlayerManager, useGameState } from "./hooks";
+import { RiDeleteBin5Fill } from "react-icons/ri";
+import { FaCrown } from "react-icons/fa";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Input } from "./components/ui/input";
+import { Button } from "./components/ui/button";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
+
+import {
+	Item,
+	ItemContent,
+	ItemDescription,
+	ItemHeader,
+	ItemTitle,
+} from "@/components/ui/item";
+import { Badge } from "@/components/ui/badge";
+import {
+	Drawer,
+	DrawerClose,
+	DrawerContent,
+	DrawerDescription,
+	DrawerFooter,
+	DrawerHeader,
+	DrawerTitle,
+	DrawerTrigger,
+} from "@/components/ui/drawer";
+import {
+	Sheet,
+	SheetContent,
+	SheetDescription,
+	SheetHeader,
+	SheetTitle,
+	SheetTrigger,
+} from "@/components/ui/sheet";
+import { IoIosSettings } from "react-icons/io";
 
 const App: React.FC = () => {
-  const {
-    players,
-    newPlayerName,
-    setNewPlayerName,
-    addPlayer,
-    updateRoundScore,
-    applyRoundScores,
-    resetPlayerScores,
-    removePlayer,
-  } = usePlayerManager();
+	const {
+		players,
+		newPlayerName,
+		setNewPlayerName,
+		addPlayer,
+		updateRoundScore,
+		applyRoundScores,
+		resetPlayerScores,
+		removePlayer,
+		removeAllPlayers,
+	} = usePlayerManager();
 
-  const {
-    gameMode,
-    changeGameMode,
-    nextRound,
-    resetGame,
-    isGameEnded,
-    roundDisplayText,
-  } = useGameState();
+	const {
+		gameMode,
+		changeGameMode,
+		nextRound,
+		resetGame,
+		isGameEnded,
+		roundDisplayText,
+	} = useGameState();
 
-  const handleApplyRoundScores = () => {
-    applyRoundScores();
-    nextRound();
-  };
+	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  const handleResetAll = () => {
-    resetPlayerScores();
-    resetGame();
-  };
+	const handleApplyRoundScores = () => {
+		applyRoundScores();
+		nextRound();
+		setIsDrawerOpen(false);
+	};
 
-  return (
-    <main>
-      <h1>Scoreboard</h1>
+	const handleResetAll = () => {
+		resetPlayerScores();
+		resetGame();
+	};
 
-      {/* Game Mode Toggle */}
-      <div className="game-mode-toggle">
-        <select
-          value={gameMode}
-          onChange={(e) => {
-            const newMode = e.target.value as
-              | "highest-wins"
-              | "lowest-wins"
-              | "unique-rounds";
-            changeGameMode(newMode);
-            resetPlayerScores();
-          }}
-        >
-          <option value="highest-wins">Highest Score Wins</option>
-          <option value="lowest-wins">Lowest Score Wins</option>
-          <option value="unique-rounds">Joe</option>
-        </select>
-      </div>
+	return (
+		<main className="flex flex-col h-screen max-w-7xl mx-auto">
+			{/* Header - Only visible when players exist */}
+			{players.length > 0 && (
+				<div className="flex justify-between items-center mb-6 px-4 pt-4">
+					<div className="text-lg font-semibold">Current Round</div>
+					<p className="text-lg">{roundDisplayText}</p>
+				</div>
+			)}
 
-      {/* Add Player */}
-      <form onSubmit={addPlayer}>
-        <input
-          type="text"
-          placeholder="Player name"
-          className="player-input"
-          value={newPlayerName}
-          onChange={(e) => setNewPlayerName(e.target.value)}
-        />
-        <button type="submit" className="add-player-submit-button">
-          Add
-        </button>
-      </form>
+			{/* Main Content Area - Scrollable */}
+			<div className="flex-1 overflow-y-auto px-4">
+				{players.length < 1 ? (
+					/* Empty State */
+					<div className="flex flex-1 items-center justify-center h-full">
+						<div className="w-full max-w-lg rounded-2xl border bg-background p-6 shadow-sm text-center">
+							<div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full border bg-muted">
+								<FaCrown className="text-3xl opacity-80" />
+							</div>
+							<div className="text-xl font-semibold mb-2">Scoreboard</div>
+							<div className="text-lg mb-2">Add players to get started</div>
+							<p className="text-sm text-muted-foreground mb-4">
+								Open <span className="font-medium">Settings</span> to add player
+								names and choose a game mode.
+							</p>
+							<div className="rounded-xl border bg-muted/40 p-4 text-sm">
+								<div className="flex items-start gap-3">
+									<div className="mt-2 h-2 w-2 rounded-full bg-foreground/50" />
+									<div className="flex flex-col">
+										<span className="text-muted-foreground">
+											Your games settings will persist after refreshing the
+											browser
+										</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				) : (
+					/* Player Scores */
+					<div className="flex flex-col gap-3 pb-4">
+						{players
+							.slice()
+							.sort((a, b) =>
+								gameMode === "highest-wins"
+									? b.totalScore - a.totalScore
+									: a.totalScore - b.totalScore
+							)
+							.map((player, index) => (
+								<Item variant="outline" key={player.id}>
+									{index === 0 && (
+										<ItemHeader>
+											<Badge variant="outline">
+												<FaCrown />
+											</Badge>
+										</ItemHeader>
+									)}
+									<ItemContent>
+										<ItemTitle>{player.name}</ItemTitle>
+										<ItemDescription>{player.totalScore}</ItemDescription>
+									</ItemContent>
+								</Item>
+							))}
+					</div>
+				)}
+			</div>
 
-      {/* Player Table */}
-      {players.length === 0 ? (
-        <p>No players yet. Add someone to get started.</p>
-      ) : (
-        <>
-          {/* Players Table */}
-          <table className="player-table">
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th>Score</th>
-              </tr>
-            </thead>
+			{/* Fixed Action Bar */}
+			<div className="border-t bg-background p-4">
+				<div className="flex justify-center gap-3">
+					<Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+						<DrawerTrigger asChild>
+							<Button disabled={players.length === 0}>Add Scores</Button>
+						</DrawerTrigger>
+						<DrawerContent>
+							<DrawerHeader>
+								<DrawerTitle>Round Score</DrawerTitle>
+								<DrawerDescription>
+									Add players scores and then submit the round scores
+								</DrawerDescription>
+							</DrawerHeader>
 
-            <tbody>
-              {players.map((player) => (
-                <tr key={player.id}>
-                  <td>{player.name}</td>
+							{/* Players Table */}
+							<Table className="player-table">
+								<TableHeader>
+									<TableRow>
+										<TableHead>Player</TableHead>
+										<TableHead>Score</TableHead>
+									</TableRow>
+								</TableHeader>
 
-                  <td>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      value={player.roundScore}
-                      onChange={(e) =>
-                        updateRoundScore(player.id, e.target.value)
-                      }
-                    />
-                  </td>
+								<TableBody>
+									{players.map((player) => (
+										<TableRow key={player.id}>
+											<TableCell>{player.name}</TableCell>
+											<TableCell>
+												<Input
+													type="number"
+													inputMode="numeric"
+													value={player.roundScore}
+													onChange={(e) =>
+														updateRoundScore(player.id, e.target.value)
+													}
+												/>
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
 
-                  <td>
-                    <button
-                      type="button"
-                      className="remove-player-button"
-                      onClick={() => removePlayer(player.id)}
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+							<DrawerFooter>
+								<Button
+									type="button"
+									className="apply-score-button"
+									onClick={handleApplyRoundScores}
+									disabled={isGameEnded}
+								>
+									Submit Round Scores
+								</Button>
+								<DrawerClose>
+									<Button variant="outline">Cancel</Button>
+								</DrawerClose>
+							</DrawerFooter>
+						</DrawerContent>
+					</Drawer>
 
-          {/* Actions */}
-          <div className="action-buttons">
-            <button
-              type="button"
-              className="reset-button"
-              onClick={handleResetAll}
-            >
-              Reset game
-            </button>
+					<Sheet>
+						<SheetTrigger asChild>
+							<Button>
+								<IoIosSettings />
+								Settings
+							</Button>
+						</SheetTrigger>
+						<SheetContent>
+							<SheetHeader>
+								<SheetTitle>Game Settings</SheetTitle>
+								<SheetDescription>
+									Manage players & game modes.
+								</SheetDescription>
 
-            <button
-              type="button"
-              className="apply-score-button"
-              onClick={handleApplyRoundScores}
-              disabled={isGameEnded}
-            >
-              Apply round scores
-            </button>
-          </div>
+								<Select
+									value={gameMode}
+									onValueChange={(newMode) => {
+										changeGameMode(
+											newMode as
+												| "highest-wins"
+												| "lowest-wins"
+												| "unique-rounds"
+										);
+										resetPlayerScores();
+									}}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select Game Mode" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="highest-wins">
+											Highest Score Wins
+										</SelectItem>
+										<SelectItem value="lowest-wins">
+											Lowest Score Wins
+										</SelectItem>
+										<SelectItem value="unique-rounds">JOE</SelectItem>
+									</SelectContent>
+								</Select>
 
-          {/* Current Round Card */}
-          <div className="round-card">
-            <h2>Current Round</h2>
+								<form onSubmit={addPlayer} className="flex gap-3">
+									<Input
+										type="text"
+										placeholder="Player name"
+										value={newPlayerName}
+										onChange={(e) => setNewPlayerName(e.target.value)}
+									/>
+									<Button type="submit">Add</Button>
+								</form>
 
-            <p>{roundDisplayText}</p>
-          </div>
+								{players.length > 0 && (
+									<div className="flex flex-col gap-3">
+										{players.map((player) => (
+											<Item
+												variant={"outline"}
+												key={player.id}
+												className="flex items-center justify-between"
+											>
+												<span>{player.name}</span>
+												<Button
+													variant="destructive"
+													size="icon"
+													onClick={() => removePlayer(player.id)}
+												>
+													<RiDeleteBin5Fill className="text-white" />
+												</Button>
+											</Item>
+										))}
+									</div>
+								)}
 
-          {/* Score Display */}
-          <div className="score-cards">
-            {players
-              .slice()
-              .sort((a, b) =>
-                gameMode === "highest-wins"
-                  ? b.totalScore - a.totalScore
-                  : a.totalScore - b.totalScore
-              )
-              .map((player, index) => (
-                <div className="score-card" key={player.id}>
-                  <div className="player-info">
-                    {index === 0 &&
-                      players.length > 0 &&
-                      (gameMode === "highest-wins"
-                        ? player.totalScore > 0
-                        : players.some((p) => p.totalScore !== 0)) && (
-                        <FaCrown className="crown-icon" />
-                      )}
-                    <span>{player.name}</span>
-                  </div>
-                  <p>{player.totalScore}</p>
-                </div>
-              ))}
-          </div>
-        </>
-      )}
-    </main>
-  );
+								<Button
+									type="button"
+									variant="destructive"
+									onClick={handleResetAll}
+								>
+									Reset current game
+								</Button>
+
+								<Button
+									type="button"
+									variant="destructive"
+									onClick={removeAllPlayers}
+								>
+									Remove all players
+								</Button>
+							</SheetHeader>
+						</SheetContent>
+					</Sheet>
+				</div>
+			</div>
+		</main>
+	);
 };
 
 export default App;
