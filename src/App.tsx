@@ -178,8 +178,9 @@ const App: React.FC = () => {
 								<TableBody>
 									{players.map((player) => (
 										<TableRow key={player.id}>
-											<TableCell>{player.name}</TableCell>
-											<TableCell>
+											<TableCell className="py-3">{player.name}</TableCell>
+
+											<TableCell className="py-3">
 												<Input
 													type="number"
 													inputMode="numeric"
