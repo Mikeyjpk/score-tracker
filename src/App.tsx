@@ -41,12 +41,13 @@ import {
 import {
 	Sheet,
 	SheetContent,
-	SheetDescription,
+	SheetFooter,
 	SheetHeader,
 	SheetTitle,
 	SheetTrigger,
 } from "@/components/ui/sheet";
 import { IoIosSettings } from "react-icons/io";
+import { RiResetLeftLine } from "react-icons/ri";
 
 const App: React.FC = () => {
 	const {
@@ -166,7 +167,7 @@ const App: React.FC = () => {
 							</DrawerHeader>
 
 							{/* Players Table */}
-							<Table className="player-table">
+							<Table>
 								<TableHeader>
 									<TableRow>
 										<TableHead>Player</TableHead>
@@ -216,49 +217,51 @@ const App: React.FC = () => {
 								Settings
 							</Button>
 						</SheetTrigger>
-						<SheetContent>
+						<SheetContent className="flex flex-col h-full">
 							<SheetHeader>
-								<SheetTitle>Game Settings</SheetTitle>
-								<SheetDescription>
-									Manage players & game modes.
-								</SheetDescription>
+								<SheetTitle>Settings</SheetTitle>
 
-								<Select
-									value={gameMode}
-									onValueChange={(newMode) => {
-										changeGameMode(
-											newMode as
-												| "highest-wins"
-												| "lowest-wins"
-												| "unique-rounds"
-										);
-										resetPlayerScores();
-									}}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Select Game Mode" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="highest-wins">
-											Highest Score Wins
-										</SelectItem>
-										<SelectItem value="lowest-wins">
-											Lowest Score Wins
-										</SelectItem>
-										<SelectItem value="unique-rounds">JOE</SelectItem>
-									</SelectContent>
-								</Select>
+								<div className="flex flex-col gap-3 pt-6">
+									<Select
+										value={gameMode}
+										onValueChange={(newMode) => {
+											changeGameMode(
+												newMode as
+													| "highest-wins"
+													| "lowest-wins"
+													| "unique-rounds"
+											);
+											resetPlayerScores();
+										}}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Select Game Mode" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="highest-wins">
+												Highest Score Wins
+											</SelectItem>
+											<SelectItem value="lowest-wins">
+												Lowest Score Wins
+											</SelectItem>
+											<SelectItem value="unique-rounds">JOE</SelectItem>
+										</SelectContent>
+									</Select>
 
-								<form onSubmit={addPlayer} className="flex gap-3">
-									<Input
-										type="text"
-										placeholder="Player name"
-										value={newPlayerName}
-										onChange={(e) => setNewPlayerName(e.target.value)}
-									/>
-									<Button type="submit">Add</Button>
-								</form>
+									<form onSubmit={addPlayer} className="flex gap-3">
+										<Input
+											type="text"
+											placeholder="Player name"
+											value={newPlayerName}
+											onChange={(e) => setNewPlayerName(e.target.value)}
+										/>
+										<Button type="submit">Add</Button>
+									</form>
+								</div>
+							</SheetHeader>
 
+							{/* Scrollable Players List */}
+							<div className="flex-1 overflow-y-auto py-4">
 								{players.length > 0 && (
 									<div className="flex flex-col gap-3">
 										{players.map((player) => (
@@ -269,33 +272,41 @@ const App: React.FC = () => {
 											>
 												<span>{player.name}</span>
 												<Button
-													variant="destructive"
+													variant="outline"
 													size="icon"
 													onClick={() => removePlayer(player.id)}
+													className="border-red-400 text-red-600 hover:cursor-pointer hover:text-red-400"
 												>
-													<RiDeleteBin5Fill className="text-white" />
+													<RiDeleteBin5Fill className="" />
 												</Button>
 											</Item>
 										))}
 									</div>
 								)}
+							</div>
 
-								<Button
-									type="button"
-									variant="destructive"
-									onClick={handleResetAll}
-								>
-									Reset current game
-								</Button>
+							{/* Action Buttons at Bottom */}
+							<SheetFooter className="pt-4 border-t">
+								<div className="flex justify-between">
+									<Button
+										type="button"
+										variant="outline"
+										onClick={handleResetAll}
+										className="font-semibold tracking-wide border-red-600 text-red-600"
+									>
+										Reset Game <RiResetLeftLine />
+									</Button>
 
-								<Button
-									type="button"
-									variant="destructive"
-									onClick={removeAllPlayers}
-								>
-									Remove all players
-								</Button>
-							</SheetHeader>
+									<Button
+										type="button"
+										variant="destructive"
+										onClick={removeAllPlayers}
+										className="font-semibold text-white"
+									>
+										Remove all players
+									</Button>
+								</div>
+							</SheetFooter>
 						</SheetContent>
 					</Sheet>
 				</div>
