@@ -124,7 +124,7 @@ const App: React.FC = () => {
 					</div>
 				) : (
 					/* Player Scores */
-					<div className="flex flex-col gap-3 pb-4">
+					<div className="flex flex-1 h-full flex-col gap-3">
 						{players
 							.slice()
 							.sort((a, b) =>
@@ -151,9 +151,9 @@ const App: React.FC = () => {
 				)}
 			</div>
 
-			{/* Fixed Action Bar */}
-			<div className="border-t bg-background p-4">
-				<div className="flex justify-center gap-3">
+			{/* Action Bar */}
+			<div className="border-t bg-backgroun">
+				<div className="flex justify-center gap-3 pb-10 pt-6">
 					<Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
 						<DrawerTrigger asChild>
 							<Button disabled={players.length === 0}>Add Scores</Button>
@@ -288,16 +288,7 @@ const App: React.FC = () => {
 
 							{/* Action Buttons at Bottom */}
 							<SheetFooter className="pt-4 border-t">
-								<div className="flex justify-between">
-									<Button
-										type="button"
-										variant="outline"
-										onClick={handleResetAll}
-										className="font-semibold tracking-wide border-red-600 text-red-600"
-									>
-										Reset Game <RiResetLeftLine />
-									</Button>
-
+								<div className="flex flex-col gap-3 w-full">
 									<Button
 										type="button"
 										variant="destructive"
@@ -305,6 +296,15 @@ const App: React.FC = () => {
 										className="font-semibold text-white"
 									>
 										Remove all players
+									</Button>
+
+									<Button
+										type="button"
+										variant="outline"
+										onClick={handleResetAll}
+										className="font-semibold tracking-wide border-red-600 text-red-600"
+									>
+										Reset Game <RiResetLeftLine />
 									</Button>
 								</div>
 							</SheetFooter>
