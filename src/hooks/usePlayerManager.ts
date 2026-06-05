@@ -6,6 +6,7 @@ type Player = {
 	name: string;
 	totalScore: number;
 	roundScore: string;
+	lastRoundScore: number | null;
 };
 
 export const usePlayerManager = () => {
@@ -24,11 +25,16 @@ export const usePlayerManager = () => {
 			return;
 		}
 
+		// Limit name to 25 characters
+		const limitedName =
+			trimmedName.length > 25 ? trimmedName.substring(0, 25) : trimmedName;
+
 		const newPlayer: Player = {
 			id: nextId,
-			name: trimmedName,
+			name: limitedName,
 			totalScore: 0,
 			roundScore: "",
+			lastRoundScore: null,
 		};
 
 		setPlayers((prev) => [...prev, newPlayer]);
@@ -41,6 +47,20 @@ export const usePlayerManager = () => {
 			prev.map((player) =>
 				player.id === id ? { ...player, roundScore: value } : player
 			)
+		);
+	};
+
+	const adjustRoundScore = (id: number, delta: number) => {
+		setPlayers((prev) =>
+			prev.map((player) => {
+				if (player.id !== id) {
+					return player;
+				}
+
+				const current = Number(player.roundScore);
+				const base = Number.isNaN(current) ? 0 : current;
+				return { ...player, roundScore: String(base + delta) };
+			})
 		);
 	};
 
@@ -57,9 +77,21 @@ export const usePlayerManager = () => {
 				return {
 					...player,
 					totalScore: player.totalScore + numericRoundScore,
+					lastRoundScore: numericRoundScore,
 					roundScore: "",
 				};
 			})
+		);
+	};
+
+	const undoLastRound = () => {
+		setPlayers((prev) =>
+			prev.map((player) => ({
+				...player,
+				totalScore: player.totalScore - (player.lastRoundScore ?? 0),
+				lastRoundScore: null,
+				roundScore: "",
+			}))
 		);
 	};
 
@@ -69,6 +101,7 @@ export const usePlayerManager = () => {
 				...player,
 				totalScore: 0,
 				roundScore: "",
+				lastRoundScore: null,
 			}))
 		);
 	};
@@ -82,13 +115,19 @@ export const usePlayerManager = () => {
 		setNextId(1);
 	};
 
+	// `!= null` intentionally also catches players stored before this field existed
+	const canUndo = players.some((player) => player.lastRoundScore != null);
+
 	return {
 		players,
 		newPlayerName,
 		setNewPlayerName,
 		addPlayer,
 		updateRoundScore,
+		adjustRoundScore,
 		applyRoundScores,
+		undoLastRound,
+		canUndo,
 		resetPlayerScores,
 		removePlayer,
 		removeAllPlayers,

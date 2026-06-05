@@ -25,6 +25,10 @@ export const useGameState = () => {
 		setRound((prev) => prev + 1);
 	};
 
+	const prevRound = () => {
+		setRound((prev) => Math.max(1, prev - 1));
+	};
+
 	const resetGame = () => {
 		setRound(1);
 	};
@@ -52,6 +56,7 @@ export const useGameState = () => {
 		setGameMode,
 		changeGameMode,
 		nextRound,
+		prevRound,
 		resetGame,
 		isGameEnded: isGameEnded(round, gameMode),
 		roundDisplayText: renderRoundText(),

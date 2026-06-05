@@ -1,7 +1,17 @@
 import React from "react";
-import { usePlayerManager, useGameState } from "./hooks";
-import { RiDeleteBin5Fill } from "react-icons/ri";
-import { FaCrown } from "react-icons/fa";
+import { usePlayerManager, useGameState, useTheme } from "./hooks";
+import {
+	Crown,
+	Minus,
+	Plus,
+	Trash2,
+	RotateCcw,
+	ArrowRight,
+	Sun,
+	Moon,
+	Settings,
+	Users,
+} from "lucide-react";
 import {
 	Select,
 	SelectContent,
@@ -11,18 +21,112 @@ import {
 } from "@/components/ui/select";
 import { Input } from "./components/ui/input";
 import { Button } from "./components/ui/button";
-import { Item } from "@/components/ui/item";
-import { Badge } from "@/components/ui/badge";
 import {
 	Sheet,
 	SheetContent,
-	SheetFooter,
 	SheetHeader,
 	SheetTitle,
 	SheetTrigger,
 } from "@/components/ui/sheet";
-import { IoIosSettings } from "react-icons/io";
-import { RiResetLeftLine } from "react-icons/ri";
+import { cn } from "@/lib/utils";
+
+type GameMode = "highest-wins" | "lowest-wins" | "unique-rounds";
+
+const GAME_MODE_LABELS: Record<GameMode, string> = {
+	"highest-wins": "Highest score wins",
+	"lowest-wins": "Lowest score wins",
+	"unique-rounds": "JOE",
+};
+
+// Stable per-player identity colours (assigned by id) used for the dots in Settings.
+const PLAYER_COLORS = [
+	"#22d3ee", // cyan
+	"#e879f9", // fuchsia
+	"#a78bfa", // violet
+	"#34d399", // emerald
+	"#fb923c", // orange
+	"#f472b6", // pink
+	"#60a5fa", // blue
+	"#facc15", // yellow
+];
+
+const getPlayerColor = (id: number) =>
+	PLAYER_COLORS[(id - 1) % PLAYER_COLORS.length];
+
+// Podium colouring for the rank badge on the scoreboard.
+const rankBadgeClass = (rank: number) => {
+	if (rank === 2) return "bg-slate-300 text-slate-900";
+	if (rank === 3) return "bg-amber-500 text-amber-950";
+	return "bg-muted text-muted-foreground";
+};
+
+const formatDelta = (value: number) => (value >= 0 ? `+${value}` : `${value}`);
+
+type StepperProps = {
+	value: string;
+	onChange: (value: string) => void;
+	onAdjust: (delta: number) => void;
+	accent?: boolean;
+};
+
+const Stepper: React.FC<StepperProps> = ({
+	value,
+	onChange,
+	onAdjust,
+	accent = false,
+}) => {
+	const buttonClass = cn(
+		"grid h-8 w-8 place-items-center rounded-full transition-colors",
+		accent
+			? "bg-white/20 text-white hover:bg-white/30"
+			: "bg-background text-foreground hover:bg-accent border border-border"
+	);
+
+	return (
+		<div
+			className={cn(
+				"flex items-center gap-1 rounded-full p-1",
+				accent ? "bg-white/15" : "bg-muted"
+			)}
+		>
+			<button
+				type="button"
+				aria-label="Decrease"
+				className={buttonClass}
+				onClick={() => onAdjust(-1)}
+			>
+				<Minus className="h-4 w-4" />
+			</button>
+			<input
+				type="number"
+				inputMode="numeric"
+				value={value}
+				placeholder="0"
+				onChange={(e) => onChange(e.target.value)}
+				className={cn(
+					"w-12 bg-transparent text-center text-base font-bold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+					accent
+						? "text-white placeholder:text-white/50"
+						: "text-foreground placeholder:text-muted-foreground"
+				)}
+			/>
+			<button
+				type="button"
+				aria-label="Increase"
+				className={buttonClass}
+				onClick={() => onAdjust(1)}
+			>
+				<Plus className="h-4 w-4" />
+			</button>
+		</div>
+	);
+};
+
+const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+	<div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+		{children}
+	</div>
+);
 
 const App: React.FC = () => {
 	const {
@@ -31,7 +135,10 @@ const App: React.FC = () => {
 		setNewPlayerName,
 		addPlayer,
 		updateRoundScore,
+		adjustRoundScore,
 		applyRoundScores,
+		undoLastRound,
+		canUndo,
 		resetPlayerScores,
 		removePlayer,
 		removeAllPlayers,
@@ -41,69 +148,36 @@ const App: React.FC = () => {
 		gameMode,
 		changeGameMode,
 		nextRound,
+		prevRound,
 		resetGame,
 		isGameEnded,
 		roundDisplayText,
 	} = useGameState();
 
-	const getOrdinalSuffix = (rank: number): string => {
-		const lastDigit = rank % 10;
-		const lastTwoDigits = rank % 100;
-
-		// Handle special cases for 11th, 12th, 13th
-		if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
-			return `${rank}th`;
-		}
-
-		// Handle regular cases
-		switch (lastDigit) {
-			case 1:
-				return `${rank}st`;
-			case 2:
-				return `${rank}nd`;
-			case 3:
-				return `${rank}rd`;
-			default:
-				return `${rank}th`;
-		}
-	};
+	const { theme, toggleTheme } = useTheme();
 
 	const calculatePlayerRank = () => {
 		if (players.length === 0) {
-			return {};
+			return {} as Record<number, number>;
 		}
 
-		// Create a copy of players with their scores for sorting
-		const playersWithScores = players.map((player) => ({
-			id: player.id,
-			totalScore: player.totalScore,
-		}));
+		const sortedPlayers = players
+			.map((player) => ({ id: player.id, totalScore: player.totalScore }))
+			.sort((a, b) =>
+				gameMode === "lowest-wins"
+					? a.totalScore - b.totalScore
+					: b.totalScore - a.totalScore
+			);
 
-		// Sort based on game mode
-		const sortedPlayers = playersWithScores.sort((a, b) => {
-			if (gameMode === "lowest-wins") {
-				return a.totalScore - b.totalScore; // Ascending for lowest wins
-			} else {
-				// "highest-wins" and "unique-rounds" both use descending
-				return b.totalScore - a.totalScore; // Descending for highest wins
-			}
-		});
-
-		// Create ranking map with tie handling
-		const rankings: { [key: number]: number } = {};
-		let currentRank = 1;
+		const rankings: Record<number, number> = {};
 
 		for (let i = 0; i < sortedPlayers.length; i++) {
 			const player = sortedPlayers[i];
-
-			// If this player has the same score as the previous player, they get the same rank
 			if (i > 0 && sortedPlayers[i - 1].totalScore === player.totalScore) {
 				rankings[player.id] = rankings[sortedPlayers[i - 1].id];
 			} else {
-				rankings[player.id] = currentRank;
+				rankings[player.id] = i + 1;
 			}
-
-			currentRank = i + 2;
 		}
 
 		return rankings;
@@ -111,9 +185,22 @@ const App: React.FC = () => {
 
 	const playerRankings = calculatePlayerRank();
 
+	const sortedPlayers = players
+		.slice()
+		.sort((a, b) =>
+			gameMode === "lowest-wins"
+				? a.totalScore - b.totalScore
+				: b.totalScore - a.totalScore
+		);
+
 	const handleApplyRoundScores = () => {
 		applyRoundScores();
 		nextRound();
+	};
+
+	const handleUndo = () => {
+		undoLastRound();
+		prevRound();
 	};
 
 	const handleResetAll = () => {
@@ -121,215 +208,334 @@ const App: React.FC = () => {
 		resetGame();
 	};
 
+	const hasPlayers = players.length > 0;
+	const submitLabel = isGameEnded
+		? "Game Over"
+		: `Submit Round ${roundDisplayText}`;
+
+	const ThemeToggle = (
+		<button
+			type="button"
+			aria-label="Toggle theme"
+			onClick={toggleTheme}
+			className={cn(
+				"grid h-10 w-10 place-items-center rounded-xl transition-colors",
+				hasPlayers
+					? "bg-white/20 text-white hover:bg-white/30"
+					: "border border-border bg-card text-foreground hover:bg-accent"
+			)}
+		>
+			{theme === "dark" ? (
+				<Sun className="h-5 w-5" />
+			) : (
+				<Moon className="h-5 w-5" />
+			)}
+		</button>
+	);
+
 	return (
-		<main className="flex flex-col h-screen max-w-7xl mx-auto gap-4">
-			{/* Settings Sheet - Always available */}
-			<Sheet>
-				{/* Header - Only visible when players exist */}
-				{players.length > 0 && (
-					<div className="flex justify-between items-center px-4 pt-4">
-						<Badge variant={"outline"} className="flex gap-3 text-lg py-1">
-							<div>Current Round:</div>
-							<Badge variant={"secondary"}>{roundDisplayText}</Badge>
-						</Badge>
-						<SheetTrigger asChild>
-							<Button>
-								<IoIosSettings />
-							</Button>
-						</SheetTrigger>
-					</div>
+		<Sheet>
+			<main className="mx-auto flex h-screen max-w-md flex-col bg-background text-foreground">
+				{/* ---------- Header ---------- */}
+				{hasPlayers ? (
+					<header className="rounded-b-3xl bg-gradient-to-br from-sky-500 to-blue-600 px-5 pb-6 pt-7 text-white shadow-lg">
+						<div className="flex items-start justify-between">
+							<div>
+								<div className="text-xs font-semibold uppercase tracking-widest text-white/70">
+									Now Playing
+								</div>
+								<div className="text-3xl font-extrabold leading-tight">
+									Round {roundDisplayText}
+								</div>
+							</div>
+							<div className="flex gap-2">
+								{ThemeToggle}
+								<SheetTrigger asChild>
+									<button
+										type="button"
+										aria-label="Settings"
+										className="grid h-10 w-10 place-items-center rounded-xl bg-white/20 text-white transition-colors hover:bg-white/30"
+									>
+										<Settings className="h-5 w-5" />
+									</button>
+								</SheetTrigger>
+							</div>
+						</div>
+					</header>
+				) : (
+					<header className="flex items-start justify-between px-5 pb-6 pt-7">
+						<div>
+							<div className="text-xs font-semibold uppercase tracking-widest text-sky-500">
+								Welcome
+							</div>
+							<div className="text-3xl font-extrabold leading-tight">
+								Card <span className="text-sky-400">Night</span>
+							</div>
+						</div>
+						{ThemeToggle}
+					</header>
 				)}
 
-				<SheetContent className="flex flex-col h-full">
-					<SheetHeader>
-						<SheetTitle>Settings</SheetTitle>
+				{/* ---------- Scrollable content ---------- */}
+				<div className="flex-1 overflow-y-auto px-4 pb-4 pt-4">
+					{hasPlayers ? (
+						<div className="flex flex-col gap-3">
+							{sortedPlayers.map((player, index) => {
+								const rank = playerRankings[player.id];
+								const isLeader = index === 0;
 
-						<div className="flex flex-col gap-3 pt-6">
-							<Select
-								value={gameMode}
-								onValueChange={(newMode) => {
-									changeGameMode(
-										newMode as "highest-wins" | "lowest-wins" | "unique-rounds"
-									);
-								}}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder="Select Game Mode" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="highest-wins">
-										Highest Score Wins
-									</SelectItem>
-									<SelectItem value="lowest-wins">Lowest Score Wins</SelectItem>
-									<SelectItem value="unique-rounds">JOE</SelectItem>
-								</SelectContent>
-							</Select>
-
-							<form onSubmit={addPlayer} className="flex gap-3">
-								<Input
-									type="text"
-									placeholder="Player name"
-									value={newPlayerName}
-									onChange={(e) => setNewPlayerName(e.target.value)}
-								/>
-								<Button type="submit">Add</Button>
-							</form>
-						</div>
-					</SheetHeader>
-
-					{/* Scrollable Players List */}
-					<div className="flex-1 overflow-y-auto py-4">
-						{players.length > 0 && (
-							<div className="flex flex-col gap-3">
-								{players.map((player) => (
-									<Item
-										variant={"outline"}
-										key={player.id}
-										className="flex items-center justify-between"
-									>
-										<span>{player.name}</span>
-										<Button
-											variant="outline"
-											size="icon"
-											onClick={() => removePlayer(player.id)}
-											className="border-red-400 text-red-600 hover:cursor-pointer hover:text-red-400"
+								if (isLeader) {
+									return (
+										<div
+											key={player.id}
+											className="rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 p-5 text-white shadow-lg"
 										>
-											<RiDeleteBin5Fill className="" />
-										</Button>
-									</Item>
-								))}
-							</div>
-						)}
-					</div>
-
-					{/* Action Buttons at Bottom */}
-					<SheetFooter className="pt-4 border-t">
-						<div className="flex flex-col gap-3 w-full">
-							<Button
-								type="button"
-								variant="destructive"
-								onClick={removeAllPlayers}
-								className="font-semibold text-white"
-							>
-								Remove all players
-							</Button>
-
-							<Button
-								type="button"
-								variant="outline"
-								onClick={handleResetAll}
-								className="font-semibold tracking-wide border-red-600 text-red-600"
-							>
-								Reset Game <RiResetLeftLine />
-							</Button>
-						</div>
-					</SheetFooter>
-				</SheetContent>
-
-				{/* Main Content Area - Scrollable */}
-				<div className="flex-1 overflow-y-auto px-4">
-					{players.length < 1 ? (
-						/* Empty State */
-						<div className="flex flex-1 items-center justify-center h-full">
-							<div className="w-full max-w-lg rounded-2xl border bg-background p-6 shadow-sm text-center">
-								<div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full border bg-muted">
-									<FaCrown className="text-3xl opacity-80" />
-								</div>
-								<div className="text-xl font-semibold mb-2">Scoreboard</div>
-								<div className="text-lg mb-2">Add players to get started</div>
-								<p className="text-sm text-muted-foreground mb-4">
-									Open <span className="font-medium">Settings</span> to add
-									player names and choose a game mode.
-								</p>
-								<div className="rounded-xl border bg-muted/40 p-4 text-sm">
-									<div className="flex items-start gap-3">
-										<div className="mt-2 h-2 w-2 rounded-full bg-foreground/50" />
-										<div className="flex flex-col">
-											<span className="text-muted-foreground">
-												Your games settings will persist after refreshing the
-												browser
-											</span>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					) : (
-						/* Player Scores */
-						<div className="flex flex-1 h-full flex-col gap-2">
-							{players
-								.slice()
-								.sort((a, b) =>
-									gameMode === "highest-wins"
-										? b.totalScore - a.totalScore
-										: a.totalScore - b.totalScore
-								)
-								.map((player, index) => (
-									<Item
-										key={player.id}
-										variant="outline"
-										className="flex justify-between items-center"
-									>
-										<div className="flex gap-3">
-											<Badge variant="default" className="w-12 justify-center">
-												<span className="flex flex-col items-center">
-													{index === 0 && <FaCrown />}
-													{getOrdinalSuffix(playerRankings[player.id])}
-												</span>
-											</Badge>
-
-											<div className="flex flex-col">
-												<div className="text-lg">{player.name}</div>
-												<div>Score: {player.totalScore}</div>
+											<div className="flex items-start justify-between">
+												<div className="flex items-center gap-3">
+													<div className="grid h-11 w-11 place-items-center rounded-xl bg-white/20">
+														<Crown className="h-6 w-6 text-yellow-300" />
+													</div>
+													<div className="min-w-0">
+														<div className="break-words text-2xl font-bold leading-tight">
+															{player.name}
+														</div>
+														{player.lastRoundScore != null && (
+															<div className="text-sm text-white/70">
+																{formatDelta(player.lastRoundScore)} last round
+															</div>
+														)}
+													</div>
+												</div>
+												<div className="text-right">
+													<div className="text-4xl font-extrabold leading-none">
+														{player.totalScore}
+													</div>
+													<div className="text-xs font-medium tracking-wide text-white/70">
+														POINTS
+													</div>
+												</div>
+											</div>
+											<div className="mt-4 flex items-center justify-between">
+												<span className="text-sm text-white/80">This round</span>
+												<Stepper
+													accent
+													value={player.roundScore}
+													onChange={(v) => updateRoundScore(player.id, v)}
+													onAdjust={(d) => adjustRoundScore(player.id, d)}
+												/>
 											</div>
 										</div>
+									);
+								}
 
-										<div className="flex items-center gap-2">
-											<Input
-												className="w-24 text-center shadow-none"
-												type="number"
-												inputMode="numeric"
+								const deltaPositive = (player.lastRoundScore ?? 0) >= 0;
+
+								return (
+									<div
+										key={player.id}
+										className="rounded-2xl border border-border bg-card p-4"
+									>
+										<div className="flex items-start justify-between">
+											<div className="flex items-center gap-3">
+												<div
+													className={cn(
+														"grid h-9 w-9 place-items-center rounded-full text-sm font-bold",
+														rankBadgeClass(rank)
+													)}
+												>
+													{rank}
+												</div>
+												<div className="min-w-0">
+													<div className="break-words text-lg font-semibold leading-tight">
+														{player.name}
+													</div>
+													{player.lastRoundScore != null && (
+														<div
+															className={cn(
+																"text-xs font-medium",
+																deltaPositive
+																	? "text-emerald-500"
+																	: "text-red-500"
+															)}
+														>
+															{formatDelta(player.lastRoundScore)} last round
+														</div>
+													)}
+												</div>
+											</div>
+											<div className="text-right">
+												<div className="text-3xl font-bold leading-none">
+													{player.totalScore}
+												</div>
+												<div className="text-[10px] font-medium tracking-wide text-muted-foreground">
+													POINTS
+												</div>
+											</div>
+										</div>
+										<div className="mt-3 flex items-center justify-between">
+											<span className="text-sm text-muted-foreground">
+												This round
+											</span>
+											<Stepper
 												value={player.roundScore}
-												onChange={(e) =>
-													updateRoundScore(player.id, e.target.value)
-												}
+												onChange={(v) => updateRoundScore(player.id, v)}
+												onAdjust={(d) => adjustRoundScore(player.id, d)}
 											/>
 										</div>
-									</Item>
-								))}
+									</div>
+								);
+							})}
+						</div>
+					) : (
+						/* ---------- Empty / onboarding state ---------- */
+						<div className="flex h-full flex-col items-center justify-center px-4 text-center">
+							<div className="relative mb-8">
+								<div className="grid h-24 w-24 place-items-center rounded-3xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-lg shadow-sky-500/30">
+									<Users className="h-11 w-11 text-white" />
+								</div>
+								<div className="absolute -right-2 -top-2 grid h-9 w-9 place-items-center rounded-full bg-amber-400 text-amber-950 shadow-md">
+									<Plus className="h-5 w-5" />
+								</div>
+							</div>
+							<h2 className="text-2xl font-bold">Let's set up the table</h2>
+							<p className="mt-2 max-w-xs text-sm text-muted-foreground">
+								Add everyone playing tonight and we'll keep the running score,
+								round by round.
+							</p>
+							<SheetTrigger asChild>
+								<button
+									type="button"
+									className="mt-6 flex h-12 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-7 font-bold text-white shadow-lg shadow-sky-500/30 transition-transform hover:scale-[1.02]"
+								>
+									<Plus className="h-5 w-5" /> Add players
+								</button>
+							</SheetTrigger>
+							<p className="mt-5 text-xs text-muted-foreground">
+								{GAME_MODE_LABELS[gameMode]} · you can change this anytime
+							</p>
 						</div>
 					)}
 				</div>
 
-				{/* Action Bar */}
-				<div className="border-t bg-backgroun">
-					<div className="flex justify-center gap-3 pb-10 pt-6">
-						{players.length > 0 ? (
-							<Button
-								size={"lg"}
-								type="button"
-								className="bg-green-500 hover:bg-green-300 hover:text-green-900 cursor-pointer font-bold"
-								onClick={handleApplyRoundScores}
-								disabled={isGameEnded}
-							>
-								Add Scores
+				{/* ---------- Action bar ---------- */}
+				{hasPlayers && (
+					<div className="flex items-center gap-3 border-t border-border bg-background p-4">
+						<button
+							type="button"
+							aria-label="Undo last round"
+							onClick={handleUndo}
+							disabled={!canUndo}
+							className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-border bg-card text-foreground transition-colors hover:bg-accent disabled:opacity-40 disabled:hover:bg-card"
+						>
+							<RotateCcw className="h-5 w-5" />
+						</button>
+						<button
+							type="button"
+							onClick={handleApplyRoundScores}
+							disabled={isGameEnded}
+							className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold text-white shadow-lg shadow-sky-500/20 transition-transform hover:scale-[1.01] disabled:opacity-50 disabled:hover:scale-100"
+						>
+							{submitLabel}
+							{!isGameEnded && <ArrowRight className="h-5 w-5" />}
+						</button>
+					</div>
+				)}
+			</main>
+
+			{/* ---------- Settings sheet ---------- */}
+			<SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
+				<SheetHeader className="text-left">
+					<SheetTitle className="text-2xl">Settings</SheetTitle>
+				</SheetHeader>
+
+				<div className="-mr-2 flex-1 space-y-6 overflow-y-auto pr-2 pt-6">
+					{/* Game mode */}
+					<div className="space-y-2">
+						<SectionLabel>Game Mode</SectionLabel>
+						<Select
+							value={gameMode}
+							onValueChange={(newMode) => changeGameMode(newMode as GameMode)}
+						>
+							<SelectTrigger className="w-full">
+								<SelectValue placeholder="Select Game Mode" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="highest-wins">Highest score wins</SelectItem>
+								<SelectItem value="lowest-wins">Lowest score wins</SelectItem>
+								<SelectItem value="unique-rounds">JOE</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+
+					{/* Players */}
+					<div className="space-y-2">
+						<SectionLabel>Players · {players.length}</SectionLabel>
+						<form onSubmit={addPlayer} className="flex gap-2">
+							<Input
+								type="text"
+								placeholder="Add a player..."
+								value={newPlayerName}
+								maxLength={25}
+								onChange={(e) => setNewPlayerName(e.target.value)}
+							/>
+							<Button type="submit" size="icon" aria-label="Add player">
+								<Plus className="h-4 w-4" />
 							</Button>
-						) : (
-							<SheetTrigger asChild>
-								<Button
-									size={"lg"}
-									type="button"
-									className="bg-blue-500 hover:bg-blue-300 hover:text-blue-900 cursor-pointer font-bold"
-								>
-									<IoIosSettings className="mr-2" />
-									Settings
-								</Button>
-							</SheetTrigger>
+						</form>
+
+						{hasPlayers && (
+							<div className="mt-1 flex flex-col gap-1 rounded-xl border border-border bg-muted/40 p-1.5">
+								{players.map((player) => (
+									<div
+										key={player.id}
+										className="flex items-center justify-between rounded-lg px-3 py-2.5"
+									>
+										<div className="flex min-w-0 items-center gap-3">
+											<span
+												className="h-2.5 w-2.5 shrink-0 rounded-full"
+												style={{ backgroundColor: getPlayerColor(player.id) }}
+											/>
+											<span className="truncate font-medium">{player.name}</span>
+										</div>
+										<button
+											type="button"
+											aria-label={`Remove ${player.name}`}
+											onClick={() => removePlayer(player.id)}
+											className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+										>
+											<Trash2 className="h-4 w-4" />
+										</button>
+									</div>
+								))}
+							</div>
 						)}
 					</div>
+
+					{/* Manage game */}
+					<div className="space-y-2">
+						<SectionLabel>Manage Game</SectionLabel>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={handleResetAll}
+							className="w-full justify-center font-semibold"
+						>
+							<RotateCcw className="h-4 w-4" />
+							Reset scores to zero
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={removeAllPlayers}
+							className="w-full justify-center border-destructive/50 font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+						>
+							<Trash2 className="h-4 w-4" />
+							Remove all players
+						</Button>
+					</div>
 				</div>
-			</Sheet>
-		</main>
+			</SheetContent>
+		</Sheet>
 	);
 };
 
