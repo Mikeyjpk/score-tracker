@@ -1,5 +1,5 @@
-import React from "react";
-import { usePlayerManager, useGameState, useTheme } from "./hooks";
+import React, { useEffect, useRef, useState } from "react";
+import { usePlayerManager, useGameState, useWakeLock } from "./hooks";
 import {
 	Crown,
 	Minus,
@@ -7,8 +7,8 @@ import {
 	Trash2,
 	RotateCcw,
 	ArrowRight,
-	Sun,
-	Moon,
+	Coffee,
+	Check,
 	Settings,
 	Users,
 } from "lucide-react";
@@ -23,6 +23,7 @@ import { Input } from "./components/ui/input";
 import { Button } from "./components/ui/button";
 import {
 	Sheet,
+	SheetClose,
 	SheetContent,
 	SheetHeader,
 	SheetTitle,
@@ -130,6 +131,94 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({
 	</div>
 );
 
+type ConfirmButtonProps = {
+	icon: React.ReactNode;
+	label: string;
+	confirmLabel: string;
+	doneLabel: string;
+	onConfirm: () => void;
+	destructive?: boolean;
+};
+
+/**
+ * A two-tap button: the first tap arms it (and asks for confirmation), the
+ * second performs the action and shows a brief "done" state so the user gets
+ * clear feedback. Arming reverts on its own after a few seconds.
+ */
+const ConfirmButton: React.FC<ConfirmButtonProps> = ({
+	icon,
+	label,
+	confirmLabel,
+	doneLabel,
+	onConfirm,
+	destructive = false,
+}) => {
+	const [phase, setPhase] = useState<"idle" | "confirm" | "done">("idle");
+	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const clearTimer = () => {
+		if (timerRef.current) clearTimeout(timerRef.current);
+		timerRef.current = null;
+	};
+
+	useEffect(() => clearTimer, []);
+
+	const handleClick = () => {
+		if (phase === "done") return;
+
+		if (phase === "idle") {
+			setPhase("confirm");
+			clearTimer();
+			timerRef.current = setTimeout(() => setPhase("idle"), 3500);
+			return;
+		}
+
+		clearTimer();
+		onConfirm();
+		setPhase("done");
+		timerRef.current = setTimeout(() => setPhase("idle"), 2000);
+	};
+
+	const phaseClass = {
+		idle: destructive
+			? "border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+			: "",
+		confirm: destructive
+			? "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/90"
+			: "border-transparent bg-amber-500 text-amber-950 hover:bg-amber-400",
+		done: "border-transparent bg-emerald-600 text-white hover:bg-emerald-600",
+	}[phase];
+
+	return (
+		<Button
+			type="button"
+			variant="outline"
+			onClick={handleClick}
+			aria-live="polite"
+			className={cn("w-full justify-center font-semibold", phaseClass)}
+		>
+			{phase === "idle" && (
+				<>
+					{icon}
+					{label}
+				</>
+			)}
+			{phase === "confirm" && (
+				<>
+					{icon}
+					{confirmLabel}
+				</>
+			)}
+			{phase === "done" && (
+				<>
+					<Check className="h-4 w-4" />
+					{doneLabel}
+				</>
+			)}
+		</Button>
+	);
+};
+
 const App: React.FC = () => {
 	const {
 		players,
@@ -156,7 +245,14 @@ const App: React.FC = () => {
 		roundDisplayText,
 	} = useGameState();
 
-	const { theme, toggleTheme } = useTheme();
+	const {
+		enabled: keepAwake,
+		isSupported: wakeLockSupported,
+		toggle: toggleKeepAwake,
+	} = useWakeLock();
+
+	// Modes where the lowest total score wins (JOE is a lowest-wins variant).
+	const lowestWins = gameMode === "lowest-wins" || gameMode === "unique-rounds";
 
 	const calculatePlayerRank = () => {
 		if (players.length === 0) {
@@ -166,20 +262,20 @@ const App: React.FC = () => {
 		const sortedPlayers = players
 			.map((player) => ({ id: player.id, totalScore: player.totalScore }))
 			.sort((a, b) =>
-				gameMode === "lowest-wins"
-					? a.totalScore - b.totalScore
-					: b.totalScore - a.totalScore,
+				lowestWins ? a.totalScore - b.totalScore : b.totalScore - a.totalScore,
 			);
 
 		const rankings: Record<number, number> = {};
 
+		// Dense ranking: tied players share a rank and the next distinct score
+		// gets the immediately following rank (e.g. 1, 2, 2, 3 — not 1, 2, 2, 4).
+		let rank = 0;
 		for (let i = 0; i < sortedPlayers.length; i++) {
 			const player = sortedPlayers[i];
-			if (i > 0 && sortedPlayers[i - 1].totalScore === player.totalScore) {
-				rankings[player.id] = rankings[sortedPlayers[i - 1].id];
-			} else {
-				rankings[player.id] = i + 1;
+			if (i === 0 || sortedPlayers[i - 1].totalScore !== player.totalScore) {
+				rank += 1;
 			}
+			rankings[player.id] = rank;
 		}
 
 		return rankings;
@@ -190,9 +286,7 @@ const App: React.FC = () => {
 	const sortedPlayers = players
 		.slice()
 		.sort((a, b) =>
-			gameMode === "lowest-wins"
-				? a.totalScore - b.totalScore
-				: b.totalScore - a.totalScore,
+			lowestWins ? a.totalScore - b.totalScore : b.totalScore - a.totalScore,
 		);
 
 	const handleApplyRoundScores = () => {
@@ -215,33 +309,37 @@ const App: React.FC = () => {
 		? "Game Over"
 		: `Submit Round ${roundDisplayText}`;
 
-	const ThemeToggle = (
+	const KeepAwakeToggle = wakeLockSupported && (
 		<button
 			type="button"
-			aria-label="Toggle theme"
-			onClick={toggleTheme}
+			aria-label="Keep screen awake"
+			aria-pressed={keepAwake}
+			title={
+				keepAwake
+					? "Screen stays awake while playing"
+					: "Keep the screen awake while playing"
+			}
+			onClick={toggleKeepAwake}
 			className={cn(
 				"grid h-10 w-10 place-items-center rounded-xl transition-colors",
-				hasPlayers
-					? "bg-white/20 text-white hover:bg-white/30"
-					: "border border-border bg-card text-foreground hover:bg-accent",
+				keepAwake
+					? "bg-amber-400 text-amber-950 hover:bg-amber-300"
+					: hasPlayers
+						? "bg-white/20 text-white hover:bg-white/30"
+						: "border border-border bg-card text-foreground hover:bg-accent",
 			)}
 		>
-			{theme === "dark" ? (
-				<Sun className="h-5 w-5" />
-			) : (
-				<Moon className="h-5 w-5" />
-			)}
+			<Coffee className="h-5 w-5" />
 		</button>
 	);
 
 	return (
 		<Sheet>
-			<div className="flex min-h-dvh justify-center bg-muted/40 dark:bg-muted/10 sm:py-8">
-				<main className="flex h-dvh w-full max-w-md flex-col overflow-hidden bg-background text-foreground sm:h-[min(calc(100dvh-4rem),920px)] sm:max-w-lg sm:rounded-3xl sm:border sm:border-border sm:shadow-2xl">
+			<div className="flex min-h-dvh justify-center bg-muted/40 transition-[padding] duration-300 ease-in-out motion-reduce:transition-none dark:bg-muted/10 sm:px-6 sm:py-8">
+				<main className="flex h-dvh w-full max-w-md flex-col overflow-hidden bg-background text-foreground transition-[max-width,border-radius,box-shadow,border-color] duration-300 ease-in-out motion-reduce:transition-none sm:h-[min(calc(100dvh-4rem),920px)] sm:max-w-2xl sm:rounded-3xl sm:border sm:border-border sm:shadow-2xl lg:max-w-4xl">
 					{/* ---------- Header ---------- */}
 					{hasPlayers ? (
-						<header className="shrink-0 rounded-b-3xl bg-gradient-to-br from-sky-500 to-blue-600 px-5 pb-6 pt-7 text-white shadow-lg sm:px-7">
+						<header className="shrink-0 rounded-b-3xl bg-gradient-to-br from-sky-500 to-blue-600 px-5 pb-6 pt-7 text-white shadow-lg transition-[padding] duration-300 ease-in-out motion-reduce:transition-none sm:px-7">
 							<div className="flex items-start justify-between">
 								<div>
 									<div className="text-xs font-semibold uppercase tracking-widest text-white/70">
@@ -252,7 +350,7 @@ const App: React.FC = () => {
 									</div>
 								</div>
 								<div className="flex gap-2">
-									{ThemeToggle}
+									{KeepAwakeToggle}
 									<SheetTrigger asChild>
 										<button
 											type="button"
@@ -266,7 +364,7 @@ const App: React.FC = () => {
 							</div>
 						</header>
 					) : (
-						<header className="flex shrink-0 items-start justify-between px-5 pb-6 pt-7 sm:px-7">
+						<header className="flex shrink-0 items-start justify-between px-5 pb-6 pt-7 transition-[padding] duration-300 ease-in-out motion-reduce:transition-none sm:px-7">
 							<div>
 								<div className="text-xs font-semibold uppercase tracking-widest text-sky-500">
 									Welcome
@@ -275,14 +373,14 @@ const App: React.FC = () => {
 									Card <span className="text-sky-400">Night</span>
 								</div>
 							</div>
-							{ThemeToggle}
+							{KeepAwakeToggle}
 						</header>
 					)}
 
 					{/* ---------- Scrollable content ---------- */}
-					<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6">
+					<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 transition-[padding] duration-300 ease-in-out motion-reduce:transition-none sm:px-6">
 						{hasPlayers ? (
-							<div className="flex flex-col gap-3">
+							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 								{sortedPlayers.map((player, index) => {
 									const rank = playerRankings[player.id];
 									const isLeader = index === 0;
@@ -291,7 +389,7 @@ const App: React.FC = () => {
 										return (
 											<div
 												key={player.id}
-												className="rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 p-5 text-white shadow-lg"
+												className="rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 p-5 text-white shadow-lg sm:col-span-2"
 											>
 												<div className="flex items-start justify-between">
 													<div className="flex items-center gap-3">
@@ -352,7 +450,7 @@ const App: React.FC = () => {
 														{rank}
 													</div>
 													<div className="min-w-0">
-														<div className="break-words text-lg font-semibold leading-tight">
+														<div className="wrap-break-word text-lg font-semibold leading-tight">
 															{player.name}
 														</div>
 														{player.lastRoundScore != null && (
@@ -425,7 +523,7 @@ const App: React.FC = () => {
 
 					{/* ---------- Action bar ---------- */}
 					{hasPlayers && (
-						<div className="flex shrink-0 items-center gap-3 border-t border-border bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+						<div className="flex shrink-0 items-center gap-3 border-t border-border bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-[padding] duration-300 ease-in-out motion-reduce:transition-none sm:px-6">
 							<button
 								type="button"
 								aria-label="Undo last round"
@@ -521,28 +619,46 @@ const App: React.FC = () => {
 					</div>
 
 					{/* Manage game */}
-					<div className="space-y-2">
+					<div className="space-y-4">
 						<SectionLabel>Manage Game</SectionLabel>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={handleResetAll}
-							className="w-full justify-center font-semibold"
-						>
-							<RotateCcw className="h-4 w-4" />
-							Reset scores to zero
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={removeAllPlayers}
-							className="w-full justify-center border-destructive/50 font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
-						>
-							<Trash2 className="h-4 w-4" />
-							Remove all players
-						</Button>
+						<div className="space-y-1.5">
+							<ConfirmButton
+								icon={<RotateCcw className="h-4 w-4" />}
+								label="Reset game"
+								confirmLabel="Tap again to reset the game"
+								doneLabel="Game reset — back to round 1"
+								onConfirm={handleResetAll}
+							/>
+							<p className="px-1 text-xs text-muted-foreground">
+								Sets every score back to zero and returns to round 1. Players
+								stay at the table.
+							</p>
+						</div>
+						<div className="space-y-1.5">
+							<ConfirmButton
+								destructive
+								icon={<Trash2 className="h-4 w-4" />}
+								label="Remove all players"
+								confirmLabel="Tap again to remove everyone"
+								doneLabel="All players removed"
+								onConfirm={removeAllPlayers}
+							/>
+							<p className="px-1 text-xs text-muted-foreground">
+								Clears everyone from the table so you can start a new group.
+							</p>
+						</div>
 					</div>
 				</div>
+
+				<SheetClose asChild>
+					<Button
+						type="button"
+						size="lg"
+						className="mt-4 w-full shrink-0 text-base font-semibold"
+					>
+						Done
+					</Button>
+				</SheetClose>
 			</SheetContent>
 		</Sheet>
 	);
