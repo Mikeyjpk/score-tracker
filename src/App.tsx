@@ -79,14 +79,14 @@ const Stepper: React.FC<StepperProps> = ({
 		"grid h-8 w-8 place-items-center rounded-full transition-colors",
 		accent
 			? "bg-white/20 text-white hover:bg-white/30"
-			: "bg-background text-foreground hover:bg-accent border border-border"
+			: "bg-background text-foreground hover:bg-accent border border-border",
 	);
 
 	return (
 		<div
 			className={cn(
 				"flex items-center gap-1 rounded-full p-1",
-				accent ? "bg-white/15" : "bg-muted"
+				accent ? "bg-white/15" : "bg-muted",
 			)}
 		>
 			<button
@@ -107,7 +107,7 @@ const Stepper: React.FC<StepperProps> = ({
 					"w-12 bg-transparent text-center text-base font-bold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
 					accent
 						? "text-white placeholder:text-white/50"
-						: "text-foreground placeholder:text-muted-foreground"
+						: "text-foreground placeholder:text-muted-foreground",
 				)}
 			/>
 			<button
@@ -122,7 +122,9 @@ const Stepper: React.FC<StepperProps> = ({
 	);
 };
 
-const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+const SectionLabel: React.FC<{ children: React.ReactNode }> = ({
+	children,
+}) => (
 	<div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
 		{children}
 	</div>
@@ -166,7 +168,7 @@ const App: React.FC = () => {
 			.sort((a, b) =>
 				gameMode === "lowest-wins"
 					? a.totalScore - b.totalScore
-					: b.totalScore - a.totalScore
+					: b.totalScore - a.totalScore,
 			);
 
 		const rankings: Record<number, number> = {};
@@ -190,7 +192,7 @@ const App: React.FC = () => {
 		.sort((a, b) =>
 			gameMode === "lowest-wins"
 				? a.totalScore - b.totalScore
-				: b.totalScore - a.totalScore
+				: b.totalScore - a.totalScore,
 		);
 
 	const handleApplyRoundScores = () => {
@@ -222,7 +224,7 @@ const App: React.FC = () => {
 				"grid h-10 w-10 place-items-center rounded-xl transition-colors",
 				hasPlayers
 					? "bg-white/20 text-white hover:bg-white/30"
-					: "border border-border bg-card text-foreground hover:bg-accent"
+					: "border border-border bg-card text-foreground hover:bg-accent",
 			)}
 		>
 			{theme === "dark" ? (
@@ -235,90 +237,152 @@ const App: React.FC = () => {
 
 	return (
 		<Sheet>
-			<main className="mx-auto flex h-screen max-w-md flex-col bg-background text-foreground">
-				{/* ---------- Header ---------- */}
-				{hasPlayers ? (
-					<header className="rounded-b-3xl bg-gradient-to-br from-sky-500 to-blue-600 px-5 pb-6 pt-7 text-white shadow-lg">
-						<div className="flex items-start justify-between">
+			<div className="flex min-h-dvh justify-center bg-muted/40 dark:bg-muted/10 sm:py-8">
+				<main className="flex h-dvh w-full max-w-md flex-col overflow-hidden bg-background text-foreground sm:h-[min(calc(100dvh-4rem),920px)] sm:max-w-lg sm:rounded-3xl sm:border sm:border-border sm:shadow-2xl">
+					{/* ---------- Header ---------- */}
+					{hasPlayers ? (
+						<header className="shrink-0 rounded-b-3xl bg-gradient-to-br from-sky-500 to-blue-600 px-5 pb-6 pt-7 text-white shadow-lg sm:px-7">
+							<div className="flex items-start justify-between">
+								<div>
+									<div className="text-xs font-semibold uppercase tracking-widest text-white/70">
+										Now Playing
+									</div>
+									<div className="text-3xl font-extrabold leading-tight">
+										Round {roundDisplayText}
+									</div>
+								</div>
+								<div className="flex gap-2">
+									{ThemeToggle}
+									<SheetTrigger asChild>
+										<button
+											type="button"
+											aria-label="Settings"
+											className="grid h-10 w-10 place-items-center rounded-xl bg-white/20 text-white transition-colors hover:bg-white/30"
+										>
+											<Settings className="h-5 w-5" />
+										</button>
+									</SheetTrigger>
+								</div>
+							</div>
+						</header>
+					) : (
+						<header className="flex shrink-0 items-start justify-between px-5 pb-6 pt-7 sm:px-7">
 							<div>
-								<div className="text-xs font-semibold uppercase tracking-widest text-white/70">
-									Now Playing
+								<div className="text-xs font-semibold uppercase tracking-widest text-sky-500">
+									Welcome
 								</div>
 								<div className="text-3xl font-extrabold leading-tight">
-									Round {roundDisplayText}
+									Card <span className="text-sky-400">Night</span>
 								</div>
 							</div>
-							<div className="flex gap-2">
-								{ThemeToggle}
-								<SheetTrigger asChild>
-									<button
-										type="button"
-										aria-label="Settings"
-										className="grid h-10 w-10 place-items-center rounded-xl bg-white/20 text-white transition-colors hover:bg-white/30"
-									>
-										<Settings className="h-5 w-5" />
-									</button>
-								</SheetTrigger>
-							</div>
-						</div>
-					</header>
-				) : (
-					<header className="flex items-start justify-between px-5 pb-6 pt-7">
-						<div>
-							<div className="text-xs font-semibold uppercase tracking-widest text-sky-500">
-								Welcome
-							</div>
-							<div className="text-3xl font-extrabold leading-tight">
-								Card <span className="text-sky-400">Night</span>
-							</div>
-						</div>
-						{ThemeToggle}
-					</header>
-				)}
+							{ThemeToggle}
+						</header>
+					)}
 
-				{/* ---------- Scrollable content ---------- */}
-				<div className="flex-1 overflow-y-auto px-4 pb-4 pt-4">
-					{hasPlayers ? (
-						<div className="flex flex-col gap-3">
-							{sortedPlayers.map((player, index) => {
-								const rank = playerRankings[player.id];
-								const isLeader = index === 0;
+					{/* ---------- Scrollable content ---------- */}
+					<div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4 sm:px-6">
+						{hasPlayers ? (
+							<div className="flex flex-col gap-3">
+								{sortedPlayers.map((player, index) => {
+									const rank = playerRankings[player.id];
+									const isLeader = index === 0;
 
-								if (isLeader) {
+									if (isLeader) {
+										return (
+											<div
+												key={player.id}
+												className="rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 p-5 text-white shadow-lg"
+											>
+												<div className="flex items-start justify-between">
+													<div className="flex items-center gap-3">
+														<div className="grid h-11 w-11 place-items-center rounded-xl bg-white/20">
+															<Crown className="h-6 w-6 text-yellow-300" />
+														</div>
+														<div className="min-w-0">
+															<div className="break-words text-2xl font-bold leading-tight">
+																{player.name}
+															</div>
+															{player.lastRoundScore != null && (
+																<div className="text-sm text-white/70">
+																	{formatDelta(player.lastRoundScore)} last
+																	round
+																</div>
+															)}
+														</div>
+													</div>
+													<div className="text-right">
+														<div className="text-4xl font-extrabold leading-none">
+															{player.totalScore}
+														</div>
+														<div className="text-xs font-medium tracking-wide text-white/70">
+															POINTS
+														</div>
+													</div>
+												</div>
+												<div className="mt-4 flex items-center justify-between">
+													<span className="text-sm text-white/80">
+														This round
+													</span>
+													<Stepper
+														accent
+														value={player.roundScore}
+														onChange={(v) => updateRoundScore(player.id, v)}
+														onAdjust={(d) => adjustRoundScore(player.id, d)}
+													/>
+												</div>
+											</div>
+										);
+									}
+
+									const deltaPositive = (player.lastRoundScore ?? 0) >= 0;
+
 									return (
 										<div
 											key={player.id}
-											className="rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 p-5 text-white shadow-lg"
+											className="rounded-2xl border border-border bg-card p-4"
 										>
 											<div className="flex items-start justify-between">
 												<div className="flex items-center gap-3">
-													<div className="grid h-11 w-11 place-items-center rounded-xl bg-white/20">
-														<Crown className="h-6 w-6 text-yellow-300" />
+													<div
+														className={cn(
+															"grid h-9 w-9 place-items-center rounded-full text-sm font-bold",
+															rankBadgeClass(rank),
+														)}
+													>
+														{rank}
 													</div>
 													<div className="min-w-0">
-														<div className="break-words text-2xl font-bold leading-tight">
+														<div className="break-words text-lg font-semibold leading-tight">
 															{player.name}
 														</div>
 														{player.lastRoundScore != null && (
-															<div className="text-sm text-white/70">
+															<div
+																className={cn(
+																	"text-xs font-medium",
+																	deltaPositive
+																		? "text-emerald-500"
+																		: "text-red-500",
+																)}
+															>
 																{formatDelta(player.lastRoundScore)} last round
 															</div>
 														)}
 													</div>
 												</div>
 												<div className="text-right">
-													<div className="text-4xl font-extrabold leading-none">
+													<div className="text-3xl font-bold leading-none">
 														{player.totalScore}
 													</div>
-													<div className="text-xs font-medium tracking-wide text-white/70">
+													<div className="text-[10px] font-medium tracking-wide text-muted-foreground">
 														POINTS
 													</div>
 												</div>
 											</div>
-											<div className="mt-4 flex items-center justify-between">
-												<span className="text-sm text-white/80">This round</span>
+											<div className="mt-3 flex items-center justify-between">
+												<span className="text-sm text-muted-foreground">
+													This round
+												</span>
 												<Stepper
-													accent
 													value={player.roundScore}
 													onChange={(v) => updateRoundScore(player.id, v)}
 													onAdjust={(d) => adjustRoundScore(player.id, d)}
@@ -326,121 +390,64 @@ const App: React.FC = () => {
 											</div>
 										</div>
 									);
-								}
-
-								const deltaPositive = (player.lastRoundScore ?? 0) >= 0;
-
-								return (
-									<div
-										key={player.id}
-										className="rounded-2xl border border-border bg-card p-4"
-									>
-										<div className="flex items-start justify-between">
-											<div className="flex items-center gap-3">
-												<div
-													className={cn(
-														"grid h-9 w-9 place-items-center rounded-full text-sm font-bold",
-														rankBadgeClass(rank)
-													)}
-												>
-													{rank}
-												</div>
-												<div className="min-w-0">
-													<div className="break-words text-lg font-semibold leading-tight">
-														{player.name}
-													</div>
-													{player.lastRoundScore != null && (
-														<div
-															className={cn(
-																"text-xs font-medium",
-																deltaPositive
-																	? "text-emerald-500"
-																	: "text-red-500"
-															)}
-														>
-															{formatDelta(player.lastRoundScore)} last round
-														</div>
-													)}
-												</div>
-											</div>
-											<div className="text-right">
-												<div className="text-3xl font-bold leading-none">
-													{player.totalScore}
-												</div>
-												<div className="text-[10px] font-medium tracking-wide text-muted-foreground">
-													POINTS
-												</div>
-											</div>
-										</div>
-										<div className="mt-3 flex items-center justify-between">
-											<span className="text-sm text-muted-foreground">
-												This round
-											</span>
-											<Stepper
-												value={player.roundScore}
-												onChange={(v) => updateRoundScore(player.id, v)}
-												onAdjust={(d) => adjustRoundScore(player.id, d)}
-											/>
-										</div>
-									</div>
-								);
-							})}
-						</div>
-					) : (
-						/* ---------- Empty / onboarding state ---------- */
-						<div className="flex h-full flex-col items-center justify-center px-4 text-center">
-							<div className="relative mb-8">
-								<div className="grid h-24 w-24 place-items-center rounded-3xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-lg shadow-sky-500/30">
-									<Users className="h-11 w-11 text-white" />
-								</div>
-								<div className="absolute -right-2 -top-2 grid h-9 w-9 place-items-center rounded-full bg-amber-400 text-amber-950 shadow-md">
-									<Plus className="h-5 w-5" />
-								</div>
+								})}
 							</div>
-							<h2 className="text-2xl font-bold">Let's set up the table</h2>
-							<p className="mt-2 max-w-xs text-sm text-muted-foreground">
-								Add everyone playing tonight and we'll keep the running score,
-								round by round.
-							</p>
-							<SheetTrigger asChild>
-								<button
-									type="button"
-									className="mt-6 flex h-12 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-7 font-bold text-white shadow-lg shadow-sky-500/30 transition-transform hover:scale-[1.02]"
-								>
-									<Plus className="h-5 w-5" /> Add players
-								</button>
-							</SheetTrigger>
-							<p className="mt-5 text-xs text-muted-foreground">
-								{GAME_MODE_LABELS[gameMode]} · you can change this anytime
-							</p>
+						) : (
+							/* ---------- Empty / onboarding state ---------- */
+							<div className="flex h-full flex-col items-center justify-center px-4 text-center">
+								<div className="relative mb-8">
+									<div className="grid h-24 w-24 place-items-center rounded-3xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-lg shadow-sky-500/30">
+										<Users className="h-11 w-11 text-white" />
+									</div>
+									<div className="absolute -right-2 -top-2 grid h-9 w-9 place-items-center rounded-full bg-amber-400 text-amber-950 shadow-md">
+										<Plus className="h-5 w-5" />
+									</div>
+								</div>
+								<h2 className="text-2xl font-bold">Let's set up the table</h2>
+								<p className="mt-2 max-w-xs text-sm text-muted-foreground">
+									Add everyone playing tonight and we'll keep the running score,
+									round by round.
+								</p>
+								<SheetTrigger asChild>
+									<button
+										type="button"
+										className="mt-6 flex h-12 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-7 font-bold text-white shadow-lg shadow-sky-500/30 transition-transform hover:scale-[1.02]"
+									>
+										<Plus className="h-5 w-5" /> Add players
+									</button>
+								</SheetTrigger>
+								<p className="mt-5 text-xs text-muted-foreground">
+									{GAME_MODE_LABELS[gameMode]} · you can change this anytime
+								</p>
+							</div>
+						)}
+					</div>
+
+					{/* ---------- Action bar ---------- */}
+					{hasPlayers && (
+						<div className="flex shrink-0 items-center gap-3 border-t border-border bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+							<button
+								type="button"
+								aria-label="Undo last round"
+								onClick={handleUndo}
+								disabled={!canUndo}
+								className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-border bg-card text-foreground transition-colors hover:bg-accent disabled:opacity-40 disabled:hover:bg-card"
+							>
+								<RotateCcw className="h-5 w-5" />
+							</button>
+							<button
+								type="button"
+								onClick={handleApplyRoundScores}
+								disabled={isGameEnded}
+								className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold text-white shadow-lg shadow-sky-500/20 transition-transform hover:scale-[1.01] disabled:opacity-50 disabled:hover:scale-100"
+							>
+								{submitLabel}
+								{!isGameEnded && <ArrowRight className="h-5 w-5" />}
+							</button>
 						</div>
 					)}
-				</div>
-
-				{/* ---------- Action bar ---------- */}
-				{hasPlayers && (
-					<div className="flex items-center gap-3 border-t border-border bg-background p-4">
-						<button
-							type="button"
-							aria-label="Undo last round"
-							onClick={handleUndo}
-							disabled={!canUndo}
-							className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-border bg-card text-foreground transition-colors hover:bg-accent disabled:opacity-40 disabled:hover:bg-card"
-						>
-							<RotateCcw className="h-5 w-5" />
-						</button>
-						<button
-							type="button"
-							onClick={handleApplyRoundScores}
-							disabled={isGameEnded}
-							className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold text-white shadow-lg shadow-sky-500/20 transition-transform hover:scale-[1.01] disabled:opacity-50 disabled:hover:scale-100"
-						>
-							{submitLabel}
-							{!isGameEnded && <ArrowRight className="h-5 w-5" />}
-						</button>
-					</div>
-				)}
-			</main>
+				</main>
+			</div>
 
 			{/* ---------- Settings sheet ---------- */}
 			<SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
@@ -495,7 +502,9 @@ const App: React.FC = () => {
 												className="h-2.5 w-2.5 shrink-0 rounded-full"
 												style={{ backgroundColor: getPlayerColor(player.id) }}
 											/>
-											<span className="truncate font-medium">{player.name}</span>
+											<span className="truncate font-medium">
+												{player.name}
+											</span>
 										</div>
 										<button
 											type="button"
